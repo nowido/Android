@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">LingvoDics</string>
+    <string name="searchCommandLabel">Search</string>
+</resources>

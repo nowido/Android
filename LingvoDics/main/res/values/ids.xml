@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="infoListView" type="id"></item>
+    <item name="searchStringEdit" type="id"></item>
+    <item name="searchButton" type="id"></item>
+</resources>
