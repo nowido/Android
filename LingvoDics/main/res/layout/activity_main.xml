@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:orientation="vertical">
 
     <LinearLayout
@@ -11,11 +11,12 @@
 
         <EditText
             android:id="@id/searchStringEdit"
-            android:layout_weight="1"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:imeOptions="actionSearch"
             android:inputType="text"
-            android:maxLines="1"/>
+            android:maxLines="1" />
         <Button
             android:id="@id/searchButton"
             android:layout_width="wrap_content"
@@ -24,10 +25,22 @@
             android:onClick="onSearchCommand"/>
     </LinearLayout>
 
-    <ListView
-        android:id="@id/infoListView"
+    <android.support.v4.view.ViewPager
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@id/pagerView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-    </ListView>
+        android:layout_height="match_parent">
+
+        <android.support.v4.view.PagerTitleStrip
+            android:id="@id/pagerTitleStrip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:background="#33b5e5"
+            android:textColor="#fff"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp" />
+
+    </android.support.v4.view.ViewPager>
 
 </LinearLayout>
