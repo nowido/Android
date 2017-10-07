@@ -24,6 +24,7 @@ import java.util.HashMap;
 
 public class MainActivity extends AppCompatActivity {
 
+
     // model
     private Fetcher fetcher;
 
@@ -36,12 +37,17 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean flagRetry;
 
+    private static String prepareHtmlDataSchemeUrl(String htmlContent, String charset)
+    {
+        return "data:text/html;charset=" + charset + "," + htmlContent;
+    }
+
     private class LingvoHandler implements LingvoResponseParser.LingvoDictionaryEntryHandler
     {
         public void consume(LingvoResponseParser.RootCollection rootCollection)
         {
-            ArrayList<String> info = new ArrayList<>();
-            ArrayList<String> titles = new ArrayList<>();
+            info.clear();
+            titles.clear();
 
             int length = rootCollection.items.size();
 
@@ -118,15 +124,15 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
-                String dataSchemeUrl = prepareHtmlDataSchemeUrl("<html><body><span>" + outMessage + "</span></body></html>", "ru");
+                info.clear();
+                titles.clear();
 
-                ArrayList<String> info = new ArrayList<>();
+                String dataSchemeUrl = prepareHtmlDataSchemeUrl("<html><body><span>" + outMessage + "</span></body></html>", "ru");
                 info.add(dataSchemeUrl);
 
-                ArrayList<String> title = new ArrayList<>();
-                title.add(generalErrorMessage);
+                titles.add(generalErrorMessage);
 
-                infoPagesAdapter.useInfoData(info, title, true);
+                infoPagesAdapter.useInfoData(info, titles, true);
             }
         }
     }
@@ -138,7 +144,6 @@ public class MainActivity extends AppCompatActivity {
     // view
     private EditText searchStringEdit;
 
-    private ViewPager viewPager;
     private InfoPagesAdapter infoPagesAdapter;
 
     private static final String htmlStart = "<html lang=\"ru\"><meta charset=\"UTF-8\">";
@@ -147,7 +152,13 @@ public class MainActivity extends AppCompatActivity {
     private static final String emptyInfo = htmlStart + "<body>Lingvo Dicks 1.0" + htmlEnd;
     private static String emptyInfoDataSchemeUrl = prepareHtmlDataSchemeUrl(emptyInfo, "ru");
 
-    private String styleSheet;
+    private static String styleSheet = buildStyleSheet();;
+
+    private ArrayList<String> info = new ArrayList<>();
+    private ArrayList<String> titles = new ArrayList<>();
+
+    private static final String infoKey = "infoKey";
+    private static final String titlesKey = "titlesKey";
 
     public class InfoPagesAdapter extends FragmentStatePagerAdapter
     {
@@ -282,9 +293,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void buildStyleSheet()
+    private static String buildStyleSheet()
     {
-        styleSheet = "<style>";
+        String s = "<style>";
 
         HashMap<String, String> styles = new HashMap<>();
 
@@ -304,10 +315,10 @@ public class MainActivity extends AppCompatActivity {
 
         for (String key : styles.keySet())
         {
-            styleSheet += "." + key + "{" + styles.get(key) + "}";
+            s += "." + key + "{" + styles.get(key) + "}";
         }
 
-        styleSheet += "</style>";
+        return s + "</style>";
     }
 
     private void prepareUiContent()
@@ -317,23 +328,11 @@ public class MainActivity extends AppCompatActivity {
         searchStringEdit = (EditText) findViewById(R.id.searchStringEdit);
         searchStringEdit.setOnEditorActionListener(new EditorActionHandler());
 
-        buildStyleSheet();
+        ViewPager viewPager = (ViewPager) findViewById(R.id.pagerView);
 
-        viewPager = (ViewPager) findViewById(R.id.pagerView);
-
-        ArrayList<String> infoData = new ArrayList<>();
-        infoData.add(emptyInfoDataSchemeUrl);
-
-        ArrayList<String> titles = new ArrayList<>();
-        titles.add("");
-
-        infoPagesAdapter = new InfoPagesAdapter(getSupportFragmentManager(), infoData, titles);
+        infoPagesAdapter = new InfoPagesAdapter(getSupportFragmentManager(), info, titles);
         viewPager.setAdapter(infoPagesAdapter);
-    }
-
-    private static String prepareHtmlDataSchemeUrl(String htmlContent, String charset)
-    {
-        return "data:text/html;charset=" + charset + "," + htmlContent;
+        viewPager.setOffscreenPageLimit(2);
     }
 
     @Override
@@ -341,18 +340,38 @@ public class MainActivity extends AppCompatActivity {
 
         super.onCreate(savedInstanceState);
 
+        if(savedInstanceState == null)
+        {
+            info.add(emptyInfoDataSchemeUrl);
+            titles.add("");
+        }
+        else
+        {
+            info = savedInstanceState.getStringArrayList(infoKey);
+            titles = savedInstanceState.getStringArrayList(titlesKey);
+        }
+
         ApplicationSingleton as = ApplicationSingleton.getInstance();
 
         as.setActivity(this);
 
         bearer = as.getProcessPersistentStore().get(ApplicationSingleton.bearerKey);
 
-        if(bearer != null)
+        if (bearer != null)
         {
             prepareUiContent();
         }
 
         fetcher = Fetcher.getInstance(as.getApplicationContext());
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState)
+    {
+        super.onSaveInstanceState(outState);
+
+        outState.putStringArrayList(infoKey, info);
+        outState.putStringArrayList(titlesKey, titles);
     }
 
     public void initialize(String bearer)
@@ -375,26 +394,4 @@ public class MainActivity extends AppCompatActivity {
             executeCommandSearch();
         }
     }
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState)
-    {
-        super.onSaveInstanceState(outState);
-
-        // save edit content and search info
-    }
-
-    @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState)
-    {
-        super.onRestoreInstanceState(savedInstanceState);
-
-        ApplicationSingleton as = ApplicationSingleton.getInstance();
-
-        bearer = as.getProcessPersistentStore().get(ApplicationSingleton.bearerKey);
-
-        fetcher = Fetcher.getInstance(as.getApplicationContext());
-    }
 }
-
-// to do restore edit content, list content
