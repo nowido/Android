@@ -3,4 +3,7 @@
     <item name="infoListView" type="id"></item>
     <item name="searchStringEdit" type="id"></item>
     <item name="searchButton" type="id"></item>
+    <item name="htmlView" type="id"></item>
+    <item name="pagerView" type="id"></item>
+    <item name="pagerTitleStrip" type="id"></item>
 </resources>
