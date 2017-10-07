@@ -7,7 +7,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 class LingvoResponseParser
@@ -157,7 +156,7 @@ class LingvoResponseParser
         @Override
         public String buildHtml()
         {
-            return "<div class=\"transcription\"><span>[</span>" + super.buildHtml() + "<span>]</span></div>";
+            return "<span class=\"transcription\"><span>[</span>" + super.buildHtml() + "<span>]</span></span>";
         }
     }
 
