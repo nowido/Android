@@ -1,15 +1,20 @@
 package com.example.olegnazarkin.lingvodics;
 
 import android.content.Context;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentStatePagerAdapter;
+import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.ArrayAdapter;
+import android.webkit.WebView;
 import android.widget.EditText;
-import android.widget.ListView;
 import android.widget.TextView;
 
 import com.android.volley.VolleyError;
@@ -20,17 +25,42 @@ import java.util.HashMap;
 public class MainActivity extends AppCompatActivity {
 
     // model
-    private ArrayList<String> infoData = new ArrayList<String>();
-
     private Fetcher fetcher;
 
     private String bearer;
 
-    private final String authFailedMessage = "Received authentication challenge is null";
+    private static final String generalErrorMessage = "Error has occured";
+    private static final String authFailedMessage = "Received authentication challenge is null";
 
     private String searchString;
 
     private boolean flagRetry;
+
+    private class LingvoHandler implements LingvoResponseParser.LingvoDictionaryEntryHandler
+    {
+        public void consume(LingvoResponseParser.RootCollection rootCollection)
+        {
+            ArrayList<String> info = new ArrayList<>();
+            ArrayList<String> titles = new ArrayList<>();
+
+            int length = rootCollection.items.size();
+
+            for(int i = 0; i < length; ++i)
+            {
+                LingvoResponseParser.ArticleModel am = rootCollection.items.get(i);
+
+                String htmlContent = htmlStart + styleSheet + "<body>" + am.buildHtml() + htmlEnd;
+
+                String dataSchemeUrl = prepareHtmlDataSchemeUrl(htmlContent, "ru");
+
+                info.add(dataSchemeUrl);
+
+                titles.add(am.Dictionary);
+            }
+
+            infoPagesAdapter.useInfoData(info, titles, true);
+        }
+    }
 
     private class FetchHandler implements Fetcher.FetchCallback
     {
@@ -40,44 +70,8 @@ public class MainActivity extends AppCompatActivity {
 
             if(s != null) {
 
-                LingvoResponseParser lrp = new LingvoResponseParser(s, new LingvoResponseParser.LingvoDictionaryEntryHandler() {
-                    @Override
-                    public void consume(LingvoResponseParser.RootCollection rootCollection) {
-
-                        int length = rootCollection.items.size();
-
-                        for(int i = 0; i < length; ++i)
-                        {
-
-                            LingvoResponseParser.ArticleModel am = rootCollection.items.get(i);
-
-                            String info = am.Title + "; " + am.Dictionary + " [";
-
-                            int innerLength = am.Body.size();
-
-                            for(int j = 0; j < innerLength; ++j)
-                            {
-                                LingvoResponseParser.ArticleNode an = am.Body.get(j);
-
-                                info += an.Node;
-
-                                if(j < innerLength - 1)
-                                {
-                                    info += ", ";
-                                }
-                            }
-
-                            info += "]";
-
-                            infoData.add(info);
-                        }
-
-                        if(length > 0)
-                        {
-                            infoDataAdapter.notifyDataSetChanged();
-                        }
-                    }
-                });
+                LingvoResponseParser lrp = new LingvoResponseParser(new LingvoHandler());
+                lrp.parse(s);
             }
         }
 
@@ -106,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
                 // have 404 response code;
                 // so we may distinguish 404 causes as "N" or "D" first character
 
-                String outMessage = "Error has occured";
+                String outMessage = generalErrorMessage;
 
                 if(code == 404)
                 {
@@ -124,8 +118,15 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
-                infoData.add(outMessage);
-                infoDataAdapter.notifyDataSetChanged();
+                String dataSchemeUrl = prepareHtmlDataSchemeUrl("<html><body><span>" + outMessage + "</span></body></html>", "ru");
+
+                ArrayList<String> info = new ArrayList<>();
+                info.add(dataSchemeUrl);
+
+                ArrayList<String> title = new ArrayList<>();
+                title.add(generalErrorMessage);
+
+                infoPagesAdapter.useInfoData(info, title, true);
             }
         }
     }
@@ -136,7 +137,104 @@ public class MainActivity extends AppCompatActivity {
 
     // view
     private EditText searchStringEdit;
-    private ArrayAdapter<String> infoDataAdapter;
+
+    private ViewPager viewPager;
+    private InfoPagesAdapter infoPagesAdapter;
+
+    private static final String htmlStart = "<html lang=\"ru\"><meta charset=\"UTF-8\">";
+    private static final String htmlEnd = "</body></html>";
+
+    private static final String emptyInfo = htmlStart + "<body>Lingvo Dicks 1.0" + htmlEnd;
+    private static String emptyInfoDataSchemeUrl = prepareHtmlDataSchemeUrl(emptyInfo, "ru");
+
+    private String styleSheet;
+
+    public class InfoPagesAdapter extends FragmentStatePagerAdapter
+    {
+        private ArrayList<String> info;
+        private ArrayList<String> titles;
+
+        private int infoLength;
+
+        boolean flagUpdate = false;
+
+        public InfoPagesAdapter(FragmentManager fm, ArrayList<String> info, ArrayList<String> titles)
+        {
+            super(fm);
+
+            useInfoData(info, titles, false);
+        }
+
+        public void useInfoData(ArrayList<String> info, ArrayList<String> titles, boolean notify)
+        {
+            this.info = info;
+            this.titles = titles;
+
+            infoLength = info.size();
+
+            if(notify)
+            {
+                flagUpdate = true;
+                notifyDataSetChanged();
+            }
+        }
+
+        @Override
+        public Fragment getItem(int i)
+        {
+            Fragment f = new InfoPage();
+
+            Bundle args = new Bundle();
+            args.putString(InfoPage.infoKey, info.get(i));
+
+            f.setArguments(args);
+
+            return f;
+        }
+
+        @Override
+        public int getCount()
+        {
+            return infoLength;
+        }
+
+        @Override
+        public CharSequence getPageTitle(int position)
+        {
+            return titles.get(position);
+        }
+
+        @Override
+        public int getItemPosition(Object object)
+        {
+            return flagUpdate ? POSITION_NONE : POSITION_UNCHANGED;
+        }
+
+        @Override
+        public void finishUpdate(ViewGroup container)
+        {
+            super.finishUpdate(container);
+
+            flagUpdate = false;
+        }
+    }
+
+    public static class InfoPage extends Fragment
+    {
+        public static final String infoKey = "infoKey";
+
+        @Override
+        public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
+        {
+            View rootView = inflater.inflate(R.layout.info_page, container, false);
+
+            WebView wv = rootView.findViewById(R.id.htmlView);
+
+            wv.loadUrl(getArguments().getString(infoKey));
+
+            return rootView;
+        }
+    }
 
     // controller
 
@@ -154,7 +252,9 @@ public class MainActivity extends AppCompatActivity {
             String uri = ApplicationSingleton.serviceUri + "api/v1/Translation?text=" +
                     searchString + "&srcLang=1033&dstLang=1049";
 
-            fetcher.asyncFetch(uri, headers, fetchHandler);
+            String uriNormal = uri.replaceAll("\\s", "%20");
+
+            fetcher.asyncFetch(uriNormal, headers, fetchHandler);
 
             flagCommandIssued = true;
         }
@@ -173,13 +273,41 @@ public class MainActivity extends AppCompatActivity {
     {
         public boolean onEditorAction(TextView tv, int actionId, KeyEvent event)
         {
-            if(actionId == EditorInfo.IME_ACTION_DONE)
+            if(actionId == EditorInfo.IME_ACTION_SEARCH)
             {
-                executeCommandSearch();
+                onSearchCommand(tv);
             }
 
             return false;
         }
+    }
+
+    private void buildStyleSheet()
+    {
+        styleSheet = "<style>";
+
+        HashMap<String, String> styles = new HashMap<>();
+
+        styles.put("transcription", "color: brown;");
+        styles.put("caption", "font-weight: bold; color: grey;");
+        styles.put("abbrev", "color: grey;");
+        styles.put("headline", "padding: 5px; background-color: beige;");
+        styles.put("word", "font-weight: bold; color: darkslategrey;");
+        styles.put("book", "font-style: italic; font-weight: bold; color: brown;");
+        styles.put("sound", "color: blue;");
+        styles.put("comment", "font-weight: lighter; color: grey;");
+        styles.put("examples", "background-color: aliceblue;");
+        styles.put("exampleitem", "font-weight: lighter; color: grey;");
+        styles.put("example", "font-weight: lighter; color: grey;");
+        styles.put("cardrefitem", "font-weight: lighter; color: cornflowerblue;");
+        styles.put("cardref", "font-weight: lighter; color: cornflowerblue;");
+
+        for (String key : styles.keySet())
+        {
+            styleSheet += "." + key + "{" + styles.get(key) + "}";
+        }
+
+        styleSheet += "</style>";
     }
 
     private void prepareUiContent()
@@ -189,10 +317,23 @@ public class MainActivity extends AppCompatActivity {
         searchStringEdit = (EditText) findViewById(R.id.searchStringEdit);
         searchStringEdit.setOnEditorActionListener(new EditorActionHandler());
 
-        infoDataAdapter = new ArrayAdapter<String>(this, R.layout.info_item, infoData);
+        buildStyleSheet();
 
-        ListView lv = (ListView) findViewById(R.id.infoListView);
-        lv.setAdapter(infoDataAdapter);
+        viewPager = (ViewPager) findViewById(R.id.pagerView);
+
+        ArrayList<String> infoData = new ArrayList<>();
+        infoData.add(emptyInfoDataSchemeUrl);
+
+        ArrayList<String> titles = new ArrayList<>();
+        titles.add("");
+
+        infoPagesAdapter = new InfoPagesAdapter(getSupportFragmentManager(), infoData, titles);
+        viewPager.setAdapter(infoPagesAdapter);
+    }
+
+    private static String prepareHtmlDataSchemeUrl(String htmlContent, String charset)
+    {
+        return "data:text/html;charset=" + charset + "," + htmlContent;
     }
 
     @Override
